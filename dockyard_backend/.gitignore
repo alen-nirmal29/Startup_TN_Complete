@@ -1,0 +1,30 @@
+
+# Python
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# Virtual environment
+virtualenv/
+venv/
+/htmlcov/
+.tox/
+.coverage
+.coverage.*
+.benchmarks/
+
+# Editors
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+thumbs.db
+
+# Logs
+*.log
+
+# Env variables
+.env
+.flaskenv
