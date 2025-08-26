@@ -10,7 +10,7 @@ def search_services(supabase: Client, keywords: list[str]) -> list[dict]:
 
 def search_funding_entities(supabase: Client, sector: str | None, geography: str | None, min_revenue: float | None) -> List[Dict[str, Any]]:
     query_investors = supabase.table("investors").select("investor_name, email, linkedin_profile_url, investment_focus_sectors, investment_focus_stages, geographical_focus, average_ticket_size")
-    query_startups = supabase.table("startups").select("startup_name, short_description, sector, stage")
+    query_startups = supabase.table("startups").select("startup_name, website_url, short_description, sector, stage")
 
     if sector:
         # Ensure the JSON array for containment is passed as a quoted JSON string literal

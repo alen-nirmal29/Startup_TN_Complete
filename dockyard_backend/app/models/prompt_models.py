@@ -23,8 +23,16 @@ class SearchResult(BaseModel):
     access_link: Optional[str] = None
 
 
+class ActionPlanItem(BaseModel):
+    entity_name: str
+    entity_type: str
+    reason_relevant: str
+    next_steps: List[str]
+
+
 class AIActionPlan(BaseModel):
-    action_plan: List[str]
+    action_plan: List[ActionPlanItem]
+    message: Optional[str] = None
 
 
 class PromptOutput(BaseModel):

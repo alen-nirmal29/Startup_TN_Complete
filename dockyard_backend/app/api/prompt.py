@@ -20,7 +20,11 @@ async def handle_prompt(
     search_results = search_service.perform_search(structured_query)
 
     # 3. AI Post-Processing (User-Friendly Output)
-    ai_action_plan_dict = gemini_service.generate_action_plan([result.model_dump() for result in search_results])
+    ai_action_plan_dict = gemini_service.generate_action_plan(
+        [result.model_dump() for result in search_results],
+        prompt_input.prompt,
+        structured_query
+    )
     ai_action_plan = AIActionPlan(**ai_action_plan_dict)
 
     # 4. Return Response to Frontend
