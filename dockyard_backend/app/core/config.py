@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    SUPABASE_DB_URL: str
     SUPABASE_URL: str
     SUPABASE_KEY: str
     GEMINI_API_KEY: str
