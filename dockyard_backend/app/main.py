@@ -38,12 +38,12 @@ async def ask(body: QueryRequest):
             # Log or return the generated SQL for debugging
             print(f"Generated SQL: {sql}")
             results = await run_sql(sql) if sql else []
-            return {"results": results, "explanation": sql, "sql": sql}
+            return {"results": results, "sql": sql}
         else:
             response = await gemini_call(user_query, startup_tn_knowledge_base, mode="knowledge")
             results = response.get("results", [])
             explanation = response.get("explanation", "")
-            return {"results": results, "explanation": explanation}
+            return {"results": results}
     except Exception as e:
         import logging
         logging.error(traceback.format_exc())

@@ -100,12 +100,12 @@ async def gemini_call(user_question: str, unified_json: dict, mode: str = "knowl
 
             response = await model.generate_content_async([message])
             if not response.candidates or not response.candidates[0].content.parts:
-                return {"results": [], "explanation": ""}
+                return {"results": []}
             clean_response = response.candidates[0].content.parts[0].text.strip()
-            return {"results": [clean_response], "explanation": clean_response}
+            return {"results": [clean_response]}
     except Exception as e:
         logging.error(f"Gemini Error: {str(e)}\n{traceback.format_exc()}")
-        return {"results": [], "explanation": f"Error: {str(e)}"}
+        return {"results": [], "error": f"Error: {str(e)}"}
 
 # -------------------------------
 # Example Usage
