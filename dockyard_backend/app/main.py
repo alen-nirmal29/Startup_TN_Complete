@@ -1,4 +1,3 @@
-
 import json
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -32,18 +31,17 @@ async def ask(body: QueryRequest):
     try:
         user_query = body.query
         mode = detect_mode(user_query)
-        import re
-
-        # Call gemini_call with query and knowledge base
         if mode == "database":
             response = await gemini_call(user_query, startup_tn_knowledge_base, mode="database")
-            # Extract SQL from response (strip code blocks, etc.)
-            sql_clean = re.sub(r"^```sql|```$", "", response.strip(), flags=re.IGNORECASE).strip()
-            results = await run_sql(sql_clean)
-            return {"mode": "database", "sql": sql_clean, "results": results}
+            # response is expected to be a dict with 'results' and 'explanation'
+            results = response.get("results", [])
+            explanation = response.get("explanation", "")
+            return {"results": results, "explanation": explanation}
         else:
             response = await gemini_call(user_query, startup_tn_knowledge_base, mode="knowledge")
-            return {"mode": "knowledge", "answer": response}
+            results = response.get("results", [])
+            explanation = response.get("explanation", "")
+            return {"results": results, "explanation": explanation}
     except Exception as e:
         import logging
         logging.error(traceback.format_exc())
