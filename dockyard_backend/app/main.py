@@ -6,6 +6,7 @@ from app.api import prompt
 from app.utils.ai_db_utils import gemini_call, run_sql
 import traceback
 from app.core.startup_tn_knowledge_base import startup_tn_knowledge_base
+from app.core.db_schema import db_schema
 class QueryRequest(BaseModel):
 	query: str
 
@@ -32,11 +33,12 @@ async def ask(body: QueryRequest):
         user_query = body.query
         mode = detect_mode(user_query)
         if mode == "database":
-            response = await gemini_call(user_query, startup_tn_knowledge_base, mode="database")
-            # response is expected to be a dict with 'results' and 'explanation'
-            results = response.get("results", [])
-            explanation = response.get("explanation", "")
-            return {"results": results, "explanation": explanation}
+            response = await gemini_call(user_query, db_schema, mode="database")
+            sql = response.get("explanation", "")
+            # Log or return the generated SQL for debugging
+            print(f"Generated SQL: {sql}")
+            results = await run_sql(sql) if sql else []
+            return {"results": results, "explanation": sql, "sql": sql}
         else:
             response = await gemini_call(user_query, startup_tn_knowledge_base, mode="knowledge")
             results = response.get("results", [])

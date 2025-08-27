@@ -40,27 +40,40 @@ async def run_sql(query: str) -> List[Dict[str, Any]]:
 # -------------------------------
 # Gemini Call (Dual Mode: database / knowledge)
 # -------------------------------
-async def gemini_call(user_question: str, unified_json: dict, mode: str = "knowledge") -> Dict[str, Any]:
+async def gemini_call(user_question: str, unified_json: dict, mode: str = "knowledge") -> dict:
     """
-    Dual-mode Gemini assistant:
-    - 'database' mode: generate SQL, execute in backend, return results + explanation.
-    - 'knowledge' mode: answer questions using knowledge base JSON.
+    Gemini SQL/Knowledge assistant. In database mode, always generate a valid SQL query using ONLY the tables and columns provided in the SCHEMA_JSON. Return ONLY the SQL query, nothing else. In knowledge mode, answer using the knowledge base JSON.
     """
     try:
         if mode == "database":
-            # Database instructions
             instructions = (
-                "You are StartupTN Assistant specialized in database queries.\n"
-                "Rules:\n"
-                "1. Generate precise SQL queries using only snake_case field names from the provided schema.\n"
-                "2. Never return the SQL query itself to the user.\n"
-                "3. Execute the SQL query in the backend.\n"
-                "4. Return only:\n"
-                "   a) A human-readable explanation of what the query does.\n"
-                "   b) The query results as JSON.\n"
-                "5. Use JOINs and WHERE clauses if necessary.\n"
-                "6. Optimize queries for performance.\n"
+                "You are a SQL query generator for a PostgreSQL database. "
+                "Always generate a valid SQL query using ONLY the tables and columns provided in the SCHEMA_JSON. "
+                "Use ILIKE for text/varchar search and ::text ILIKE for JSONB search. "
+                "Return ONLY the SQL query, nothing else. "
+                "If you cannot answer, return a SQL SELECT statement that would be valid for the schema."
             )
+            message = {
+                "role": "user",
+                "parts": [
+                    {"text": instructions},
+                    {"text": f"SCHEMA_JSON:\n{json.dumps(unified_json, indent=2)}"},
+                    {"text": f"USER_QUESTION:\n{user_question}"}
+                ]
+            }
+            response = await model.generate_content_async([message])
+            if not response.candidates or not response.candidates[0].content.parts:
+                return {"results": [], "explanation": "", "sql": ""}
+            sql = response.candidates[0].content.parts[0].text.strip()
+            # Remove code block if present
+            if sql.startswith("```sql"):
+                sql = sql[6:].strip()
+            if sql.endswith("```"):
+                sql = sql[:-3].strip()
+            if not sql.lower().startswith(("select", "with", "insert", "update", "delete")):
+                return {"results": [], "explanation": "", "sql": sql}
+            rows = await run_sql(sql)
+            return {"results": rows, "explanation": sql, "sql": sql}
         else:
             # Knowledge mode instructions
             instructions = (
@@ -75,62 +88,24 @@ async def gemini_call(user_question: str, unified_json: dict, mode: str = "knowl
                 "7. Never refuse to answer.\n"
             )
 
-        message = {
-            "role": "user",
-            "parts": [
-                {"text": instructions},
-                {"text": "CONTEXT_VERSION: 2.5"},
-                {"text": f"KNOWLEDGE_BASE:\n{json.dumps(unified_json, indent=2)}"},
-                {"text": "USER_QUESTION:\n" + user_question}
-            ]
-        }
-
-        response = await model.generate_content_async([message])
-
-        if not response.candidates or not response.candidates[0].content.parts:
-            return {"error": "Empty response from Gemini"}
-
-        clean_response = response.candidates[0].content.parts[0].text.strip()
-
-        if mode == "database":
-            # Extract SQL query internally (assumes AI outputs SQL)
-            sql_query = None
-            for line in clean_response.splitlines():
-                if line.strip().lower().startswith(("select", "with", "insert", "update", "delete")):
-                    sql_query = line.strip()
-                    break
-
-            if not sql_query:
-                return {"error": "AI did not generate a valid SQL query", "raw_response": clean_response}
-
-            # Execute SQL in backend
-            rows = await run_sql(sql_query)
-
-            # Ask Gemini to summarize results in human-readable explanation
-            explanation_prompt = (
-                "You are StartupTN Assistant. Explain in simple human-readable terms "
-                "what this SQL query does and summarize the key results for the user.\n"
-                f"Query results (JSON): {json.dumps(rows, indent=2)}"
-            )
-            explanation_message = {"role": "user", "parts": [{"text": explanation_prompt}]}
-
-            explanation_response = await model.generate_content_async([explanation_message])
-            explanation_text = explanation_response.candidates[0].content.parts[0].text.strip()
-
-            return {
-                "results": rows,
-                "explanation": explanation_text
+            message = {
+                "role": "user",
+                "parts": [
+                    {"text": instructions},
+                    {"text": "CONTEXT_VERSION: 2.5"},
+                    {"text": f"KNOWLEDGE_BASE:\n{json.dumps(unified_json, indent=2)}"},
+                    {"text": "USER_QUESTION:\n" + user_question}
+                ]
             }
 
-        else:
-            # Knowledge mode: return AI response directly
-            return {
-                "answer": clean_response
-            }
-
+            response = await model.generate_content_async([message])
+            if not response.candidates or not response.candidates[0].content.parts:
+                return {"results": [], "explanation": ""}
+            clean_response = response.candidates[0].content.parts[0].text.strip()
+            return {"results": [clean_response], "explanation": clean_response}
     except Exception as e:
         logging.error(f"Gemini Error: {str(e)}\n{traceback.format_exc()}")
-        return {"error": str(e)}
+        return {"results": [], "explanation": f"Error: {str(e)}"}
 
 # -------------------------------
 # Example Usage
